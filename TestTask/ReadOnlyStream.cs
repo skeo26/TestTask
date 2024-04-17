@@ -6,6 +6,8 @@ namespace TestTask
     public class ReadOnlyStream : IReadOnlyStream
     {
         private Stream _localStream;
+        private bool _isEof;
+        public bool IsEof { get { return _isEof; } private set { } }
 
         /// <summary>
         /// Конструктор класса. 
@@ -15,19 +17,15 @@ namespace TestTask
         /// <param name="fileFullPath">Полный путь до файла для чтения</param>
         public ReadOnlyStream(string fileFullPath)
         {
-            IsEof = true;
-
-            // TODO : Заменить на создание реального стрима для чтения файла!
-            _localStream = null;
-        }
-                
-        /// <summary>
-        /// Флаг окончания файла.
-        /// </summary>
-        public bool IsEof
-        {
-            get; // TODO : Заполнять данный флаг при достижении конца файла/стрима при чтении
-            private set;
+            try
+            {
+                _localStream = new FileStream(fileFullPath, FileMode.Open, FileAccess.Read);
+                _isEof = false;
+            }
+            catch (Exception ex)
+            {
+                _isEof = true;
+            }
         }
 
         /// <summary>
@@ -38,8 +36,18 @@ namespace TestTask
         /// <returns>Считанный символ.</returns>
         public char ReadNextChar()
         {
-            // TODO : Необходимо считать очередной символ из _localStream
-            throw new NotImplementedException();
+            if (IsEof || _localStream == null)
+            {
+                throw new InvalidOperationException("Попытка чтения за пределами файла или файл не открыт.");
+            }
+
+            if (_localStream.ReadByte() == -1)
+            {
+                IsEof = true;
+                throw new EndOfStreamException("Конец файла...");
+            }
+
+            return (char)_localStream.ReadByte();
         }
 
         /// <summary>
@@ -47,14 +55,20 @@ namespace TestTask
         /// </summary>
         public void ResetPositionToStart()
         {
-            if (_localStream == null)
+            if (_localStream != null && _localStream.CanSeek)
             {
-                IsEof = true;
-                return;
+                _localStream.Position = 0;
+                IsEof = false;
             }
+        }
 
-            _localStream.Position = 0;
-            IsEof = false;
+        public void Dispose()
+        {
+            if (_localStream != null)
+            {
+                _localStream.Close();
+                _localStream = null;
+            }
         }
     }
 }
